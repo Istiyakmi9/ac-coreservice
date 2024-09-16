@@ -1,0 +1,16 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+
+  datasource:
+    url: jdbc:mysql://178.16.138.169:3308/axilcorps
+    username: root
+    password: live@Bottomhalf_001
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+eureka:
+  client:
+    enabled: true
+    serviceUrl:
+      defaultZone: http://localhost:8080/eureka

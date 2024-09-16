@@ -1,0 +1,43 @@
+server:
+  port: 8081
+
+spring:
+  profiles:
+    active: ${profile:prod}
+  application:
+    name: coreservice-service
+
+  cloud:
+    config:
+      enabled: false
+
+  jpa:
+    properties.hibernate.dialect: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+#      ddl-auto: create-drop
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+
+  mvc:
+    static-path-pattern: /applicationfiles/**
+
+## MULTIPART PROPERTIES
+  servlet:
+    multipart:
+      enabled: true
+      file-size-threshold: 2MB
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.hibernate: ERROR
