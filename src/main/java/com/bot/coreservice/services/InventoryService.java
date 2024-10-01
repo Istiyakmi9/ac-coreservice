@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.List;
 
 @Service
 public class InventoryService implements IInventoryService {
@@ -27,6 +28,13 @@ public class InventoryService implements IInventoryService {
         inventoryRepository.save(inventoryDetail);
 
         return inventoryDetail;
+    }
+
+    public List<InventoryDetail> getInventoryService(long userId) throws Exception {
+        if (userId == 0)
+            throw new Exception("Invalid user");
+
+        return inventoryRepository.getInventoryByUserId(userId);
     }
 
     private void validateInventoryDetail(InventoryDetail inventoryDetail) throws Exception {
@@ -58,5 +66,8 @@ public class InventoryService implements IInventoryService {
         double loanAmount = inventoryDetail.getOnRoadPrice() - inventoryDetail.getDownPayment();
         if (loanAmount != inventoryDetail.getLoanAmount())
             throw new Exception("Invalid loan amount calculation");
+
+        if (inventoryDetail.getPercentage() == 0)
+            throw new Exception("Percentage value is null");
     }
 }

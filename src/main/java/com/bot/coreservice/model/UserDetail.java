@@ -1,5 +1,7 @@
 package com.bot.coreservice.model;
 
+import com.bot.coreservice.entity.InventoryDetail;
+import com.bot.coreservice.entity.InvestmentDetail;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
@@ -17,11 +19,11 @@ public class UserDetail {
 
     String mobileNumber;
 
-    String alternateNumber;
+    String aadharNumber;
 
     String emailId;
 
-    Long referenceId;
+    String referenceBy;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     Date dob;
@@ -35,6 +37,10 @@ public class UserDetail {
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     Date updatedOn;
+
+    InventoryDetail inventoryDetail;
+
+    InvestmentDetail investmentDetail;
 
     String accountId;
 

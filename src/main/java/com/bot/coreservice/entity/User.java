@@ -34,14 +34,14 @@ public class User {
     @JsonProperty("mobileNumber")
     String mobileNumber;
 
-    @JsonProperty("alternateNumber")
-    String alternateNumber;
+    @JsonProperty("aadharNumber")
+    String aadharNumber;
 
     @JsonProperty("emailId")
     String emailId;
 
-    @JsonProperty("referenceId")
-    Long referenceId;
+    @JsonProperty("referenceBy")
+    String referenceBy;
 
     @JsonProperty("dob")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -66,4 +66,7 @@ public class User {
 
     @Transient
     int total;
+
+    @Transient
+    int productType;
 }
