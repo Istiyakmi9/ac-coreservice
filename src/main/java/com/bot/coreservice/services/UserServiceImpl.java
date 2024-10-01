@@ -1,10 +1,14 @@
 package com.bot.coreservice.services;
 
-import com.bot.coreservice.Repository.UserAccountRepository;
+import com.bot.coreservice.Repository.AccountSequenceRepository;
 import com.bot.coreservice.Repository.UserFileRepository;
 import com.bot.coreservice.Repository.UserRepository;
+import com.bot.coreservice.contracts.IInventoryService;
+import com.bot.coreservice.contracts.IInvestmentService;
 import com.bot.coreservice.contracts.IUserService;
 import com.bot.coreservice.db.LowLevelExecution;
+import com.bot.coreservice.entity.InventoryDetail;
+import com.bot.coreservice.entity.InvestmentDetail;
 import com.bot.coreservice.entity.User;
 import com.bot.coreservice.entity.UserFile;
 import com.bot.coreservice.model.DbParameters;
@@ -17,6 +21,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.sql.Timestamp;
@@ -32,11 +37,15 @@ public class UserServiceImpl implements IUserService {
     @Autowired
     ObjectMapper objectMapper;
     @Autowired
-    UserAccountRepository userAccountRepository;
-    @Autowired
     FileManager fileManager;
     @Autowired
     UserFileRepository userFileRepository;
+    @Autowired
+    IInventoryService iInventoryService;
+    @Autowired
+    IInvestmentService iInvestmentService;
+    @Autowired
+    AccountSequenceRepository accountSequenceRepository;
 
     public String addUserExcelService(MultipartFile userExcel) throws Exception {
         try {
@@ -81,12 +90,15 @@ public class UserServiceImpl implements IUserService {
             return result.get(0);
     }
 
-    public String addNewUserService(String userData, MultipartFile profileImage) throws Exception {
+    @Transactional(rollbackFor = Exception.class)
+    public UserDetail addNewUserService(String userData, MultipartFile profileImage) throws Exception {
         Date utilDate = new Date();
         var currentDate = new Timestamp(utilDate.getTime());
 
         User user = objectMapper.readValue(userData, User.class);
-        user.setAccountId("6789123542");
+        validateUser(user);
+
+        user.setAccountId(getAccountNumber(user.getProductType()));
         user.setCreatedBy(1L);
         user.setUpdatedBy(1L);
         user.setCreatedOn(currentDate);
@@ -96,10 +108,71 @@ public class UserServiceImpl implements IUserService {
 
         saveUserProfile(profileImage, newUser);
 
-        return  "User added successfully";
+        var userDetail = objectMapper.readValue(userData, UserDetail.class);
+        if (user.getProductType() == 4) {
+            var investmentDetail = objectMapper.convertValue(userDetail.getInvestmentDetail(), InvestmentDetail.class);
+            investmentDetail.setUserId(newUser.getUserId());
+            investmentDetail = iInvestmentService.addInvestmentService(investmentDetail);
+            userDetail.setInvestmentDetail(investmentDetail);
+        } else {
+            var inventoryDetail = objectMapper.convertValue(userDetail.getInventoryDetail(), InventoryDetail.class);
+            inventoryDetail.setUserId(newUser.getUserId());
+            inventoryDetail = iInventoryService.addInventoryService(inventoryDetail);
+            userDetail.setInventoryDetail(inventoryDetail);
+        }
+
+        userDetail.setAccountId(newUser.getAccountId());
+        return  userDetail;
     }
 
-    public String updateUserService(String userData, MultipartFile profileImage) throws Exception {
+    private void validateUser(User user) throws Exception {
+        if (user.getFirstName() == null || user.getFirstName().isEmpty())
+            throw new Exception("Invalid first name");
+
+        if (user.getLastName() == null || user.getLastName().isEmpty())
+            throw new Exception("Invalid last name");
+
+        if (user.getMobileNumber() == null || user.getMobileNumber().isEmpty())
+            throw new Exception("Invalid mobile number");
+
+        if (user.getAadharNumber() == null || user.getAadharNumber().isEmpty())
+            throw new Exception("Invalid aadhar number");
+
+        if (user.getAddress() == null || user.getAddress().isEmpty())
+            throw new Exception("Invalid address");
+
+        if (user.getReferenceBy() == null || user.getReferenceBy().isEmpty())
+            throw new Exception("Invalid reference");
+
+        if (user.getMobileNumber().length() != 10)
+            throw new Exception("Invalid mobile number");
+
+        if (user.getAadharNumber().length() != 12)
+            throw new Exception("Invalid aadhar number");
+
+        if (user.getProductType() == 0)
+            throw new Exception("Invalid product selected");
+    }
+
+    private String getAccountNumber(int productType) throws Exception {
+        var lastAccountSequence = accountSequenceRepository.findById(1).orElseThrow(
+                () -> new Exception("Account sequence detail not found")
+        );
+        var nextAccountNumber = lastAccountSequence.getLastSequenceNumber() + 1;
+        var accountNumber = String.format("%05d", nextAccountNumber);
+
+        lastAccountSequence.setLastSequenceNumber(nextAccountNumber);
+        accountSequenceRepository.save(lastAccountSequence);
+
+        if (productType == 4) {
+            return "INV" + accountNumber;
+        } else {
+            return "PRO" + accountNumber;
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public UserDetail updateUserService(String userData, MultipartFile profileImage) throws Exception {
         Date utilDate = new Date();
         var currentDate = new Timestamp(utilDate.getTime());
 
@@ -107,6 +180,7 @@ public class UserServiceImpl implements IUserService {
         if (user.getUserId() == 0 || user.getUserId() == null)
             throw new Exception("Invalid user");
 
+        validateUser(user);
         var existingUserData = userRepository.findById(user.getUserId());
 
         var existingUser = getUpdateUserDetail(existingUserData, user, currentDate);
@@ -115,7 +189,21 @@ public class UserServiceImpl implements IUserService {
 
         saveUserProfile(profileImage, existingUser);
 
-        return  "User updated successfully";
+        var userDetail = objectMapper.readValue(userData, UserDetail.class);
+        if (user.getProductType() == 4) {
+            var investmentDetail = objectMapper.convertValue(userDetail.getInvestmentDetail(), InvestmentDetail.class);
+            investmentDetail.setUserId(existingUser.getUserId());
+            investmentDetail = iInvestmentService.addInvestmentService(investmentDetail);
+            userDetail.setInvestmentDetail(investmentDetail);
+        } else {
+            var inventoryDetail = objectMapper.convertValue(userDetail.getInventoryDetail(), InventoryDetail.class);
+            inventoryDetail.setUserId(existingUser.getUserId());
+            inventoryDetail = iInventoryService.addInventoryService(inventoryDetail);
+            userDetail.setInventoryDetail(inventoryDetail);
+        }
+
+        userDetail.setAccountId(existingUser.getAccountId());
+        return  userDetail;
     }
 
     private void saveUserProfile(MultipartFile profileImage, User user) throws Exception {
@@ -139,11 +227,12 @@ public class UserServiceImpl implements IUserService {
         existingUser.setFirstName(user.getFirstName());
         existingUser.setLastName(user.getLastName());
         existingUser.setMobileNumber(user.getMobileNumber());
-        existingUser.setAlternateNumber(user.getAlternateNumber());
+        existingUser.setAadharNumber(user.getAadharNumber());
         existingUser.setEmailId(user.getEmailId());
         existingUser.setDob(user.getDob());
         existingUser.setAddress(user.getAddress());
         existingUser.setUpdatedBy(1L);
+        existingUser.setReferenceBy(user.getReferenceBy());
         existingUser.setUpdatedOn(currentDate);
         return existingUser;
     }
@@ -201,8 +290,8 @@ public class UserServiceImpl implements IUserService {
             user.setEmailId(row.getCell(columnMap.get("emailid")).getStringCellValue());
         }
 
-        if (columnMap.containsKey("referenceid")) {
-            user.setReferenceId((long) row.getCell(columnMap.get("referenceid")).getNumericCellValue());
+        if (columnMap.containsKey("referenceiy")) {
+            user.setReferenceBy(row.getCell(columnMap.get("referenceby")).getStringCellValue());
         }
         if (columnMap.containsKey("dob")) {
             user.setDob(row.getCell(columnMap.get("dob")).getDateCellValue());
@@ -226,9 +315,9 @@ public class UserServiceImpl implements IUserService {
                 String alternateNumber = String.valueOf(cell.getNumericCellValue());
 
                 alternateNumber = String.format("%.0f", cell.getNumericCellValue());
-                user.setAlternateNumber(alternateNumber);
+                user.setAadharNumber(alternateNumber);
             } else  {
-                user.setAlternateNumber(cell.getStringCellValue());
+                user.setAadharNumber(cell.getStringCellValue());
             }
         }
 

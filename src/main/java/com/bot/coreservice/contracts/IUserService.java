@@ -1,5 +1,6 @@
 package com.bot.coreservice.contracts;
 
+import com.bot.coreservice.entity.InventoryDetail;
 import com.bot.coreservice.entity.User;
 import com.bot.coreservice.model.FilterModel;
 import com.bot.coreservice.model.UserDetail;
@@ -15,7 +16,7 @@ public interface IUserService {
 
     UserDetail getUserByIdService(long userId) throws Exception;
 
-    String addNewUserService(String user, MultipartFile profile) throws Exception;
+    UserDetail addNewUserService(String user, MultipartFile profile) throws Exception;
 
-    String updateUserService(String userData, MultipartFile profileImage) throws Exception;
+    UserDetail updateUserService(String userData, MultipartFile profileImage) throws Exception;
 }

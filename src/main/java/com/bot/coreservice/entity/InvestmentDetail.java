@@ -12,35 +12,34 @@ import java.util.Date;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name="inventory_detail")
-public class InventoryDetail {
+@Table(name = "investment_detail")
+public class InvestmentDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    long inventoryId;
-
-    String inventoryName;
+    long investmentId;
 
     long userId;
 
-    double emiAmount;
+    double investmentAmount;
 
-    double onRoadPrice;
+    double addOn;
+
+    double principalAmount;
+
+    double profitAmount;
 
     int months;
 
-    double downPayment;
+    double totalProfitAmount;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    Date emiStartDate;
+    Date investmentDate;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    Date emiEndDate;
+    Date istPaymentDate;
 
-    double loanAmount;
-
-    double totalPayableAmount;
-
-    double percentage;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    Date lastPaymentDate;
 
     long createdBy;
 
@@ -52,6 +51,4 @@ public class InventoryDetail {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     Date updatedOn;
 
-    @Transient
-    String accountId;
 }
