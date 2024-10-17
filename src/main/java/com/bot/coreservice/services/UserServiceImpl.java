@@ -58,7 +58,6 @@ public class UserServiceImpl implements IUserService {
         } catch (Exception e) {
             throw new Exception(e.getMessage());
         }
-
     }
 
     public List<User> filterUserService(FilterModel filterModel) {
@@ -259,7 +258,10 @@ public class UserServiceImpl implements IUserService {
 
             for (int i = 1; i < sheet.getPhysicalNumberOfRows(); i++) {
                 Row row = sheet.getRow(i);
-
+                if (row.getCell(columnMap.get("firstname")).getStringCellValue().isEmpty()
+                        || row.getCell(columnMap.get("firstname")).getStringCellValue() == null) {
+                    break;
+                }
                 users.add(mappedUserData(columnMap, row));
             }
         } catch (Exception e) {
@@ -290,11 +292,16 @@ public class UserServiceImpl implements IUserService {
             user.setEmailId(row.getCell(columnMap.get("emailid")).getStringCellValue());
         }
 
-        if (columnMap.containsKey("referenceiy")) {
-            user.setReferenceBy(row.getCell(columnMap.get("referenceby")).getStringCellValue());
-        }
-        if (columnMap.containsKey("dob")) {
-            user.setDob(row.getCell(columnMap.get("dob")).getDateCellValue());
+        if (columnMap.containsKey("referenceby")) {
+            Cell cell = row.getCell(columnMap.get("referenceby"));
+            if (cell.getCellType() == CellType.NUMERIC) {
+                String referenceby = String.valueOf(cell.getNumericCellValue());
+
+                referenceby = String.format("%.0f", cell.getNumericCellValue());
+                user.setReferenceBy(referenceby);
+            } else  {
+                user.setReferenceBy(cell.getStringCellValue());
+            }
         }
 
         if (columnMap.containsKey("mobilenumber")) {
@@ -309,27 +316,15 @@ public class UserServiceImpl implements IUserService {
             }
         }
 
-        if (columnMap.containsKey("alternatenumber")) {
-            Cell cell = row.getCell(columnMap.get("alternatenumber"));
+        if (columnMap.containsKey("aadharnumber")) {
+            Cell cell = row.getCell(columnMap.get("aadharnumber"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String alternateNumber = String.valueOf(cell.getNumericCellValue());
+                String aadharNumber = String.valueOf(cell.getNumericCellValue());
 
-                alternateNumber = String.format("%.0f", cell.getNumericCellValue());
-                user.setAadharNumber(alternateNumber);
+                aadharNumber = String.format("%.0f", cell.getNumericCellValue());
+                user.setAadharNumber(aadharNumber);
             } else  {
                 user.setAadharNumber(cell.getStringCellValue());
-            }
-        }
-
-        if (columnMap.containsKey("accountid")) {
-            Cell cell = row.getCell(columnMap.get("accountid"));
-            if (cell.getCellType() == CellType.NUMERIC) {
-                String accountId = String.valueOf(cell.getNumericCellValue());
-
-                accountId = String.format("%.0f", cell.getNumericCellValue());
-                user.setAccountId(accountId);
-            } else if (cell.getCellType() == CellType.STRING) {
-                user.setAccountId(cell.getStringCellValue());
             }
         }
 
@@ -347,5 +342,153 @@ public class UserServiceImpl implements IUserService {
             String header = headerRow.getCell(cellIndex).getStringCellValue().toLowerCase();
             columnMap.put(header, cellIndex);
         }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public String addUserAndInvestmentExcelService(MultipartFile userExcel) throws Exception {
+        try {
+            List<UserDetail> userDetails = readAndMapUserAndInvestmentExcel(userExcel);
+            if (!userDetails.isEmpty()) {
+                userDetails.forEach(x -> {
+                    User user = objectMapper.convertValue(x, User.class);
+                    try {
+                        user.setAccountId(getAccountNumber(4));
+                        user.setLastName("");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    user = userRepository.save(user);
+
+                    InvestmentDetail investmentDetail = objectMapper.convertValue(x.getInvestmentDetail(), InvestmentDetail.class);
+
+                    investmentDetail.setLastPaymentDate(getNewDate(investmentDetail.getIstPaymentDate(), investmentDetail.getMonths() - 1));
+                    investmentDetail.setPrincipalAmount(investmentDetail.getInvestmentAmount() * 0.05);
+                    investmentDetail.setProfitAmount(investmentDetail.getTotalProfitAmount() - investmentDetail.getPrincipalAmount());
+                    investmentDetail.setUserId(user.getUserId());
+                    investmentDetail.setInvestmentDate(getNewDate(investmentDetail.getIstPaymentDate(), -1 * investmentDetail.getPaidInstallment()));
+                    try {
+                        iInvestmentService.addInvestmentService(investmentDetail);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+
+            return "user inserted successfully";
+        } catch (Exception e) {
+            throw new Exception(e.getMessage());
+        }
+    }
+
+    private Date getNewDate(Date date, int month) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+
+        calendar.add(Calendar.MONTH, month);
+
+        return calendar.getTime();
+    }
+
+    private List<UserDetail> readAndMapUserAndInvestmentExcel(MultipartFile userExcel) throws Exception {
+        List<UserDetail> userDetails = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(userExcel.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Map<String, Integer> columnMap = new HashMap<>();
+
+            extractedHeader(sheet, columnMap);
+
+            for (int i = 1; i < sheet.getPhysicalNumberOfRows(); i++) {
+                Row row = sheet.getRow(i);
+                if (row.getCell(columnMap.get("name")).getStringCellValue().isEmpty()
+                        || row.getCell(columnMap.get("name")).getStringCellValue() == null) {
+                    break;
+                }
+                userDetails.add(mappedUserAndInvestmentData(columnMap, row));
+            }
+        } catch (Exception e) {
+            throw new Exception(e.getMessage());
+        }
+
+        return userDetails;
+    }
+
+    private UserDetail mappedUserAndInvestmentData(Map<String, Integer> columnMap, Row row) {
+        UserDetail userDetail = new UserDetail();
+        userDetail.setInvestmentDetail(new InvestmentDetail());
+        Date utilDate = new Date();
+        var currentDate = new Timestamp(utilDate.getTime());
+
+        if (columnMap.containsKey("name")) {
+            userDetail.setFirstName(row.getCell(columnMap.get("name")).getStringCellValue());
+        }
+
+        if (columnMap.containsKey("address")) {
+            userDetail.setAddress(row.getCell(columnMap.get("address")).getStringCellValue());
+        }
+
+        if (columnMap.containsKey("reference by")) {
+            Cell cell = row.getCell(columnMap.get("reference by"));
+            if (cell.getCellType() == CellType.NUMERIC) {
+                String referenceby = String.valueOf(cell.getNumericCellValue());
+
+                referenceby = String.format("%.0f", cell.getNumericCellValue());
+                userDetail.setReferenceBy(referenceby);
+            } else  {
+                userDetail.setReferenceBy(cell.getStringCellValue());
+            }
+        }
+
+        if (columnMap.containsKey("mobile number")) {
+            Cell cell = row.getCell(columnMap.get("mobile number"));
+            if (cell.getCellType() == CellType.NUMERIC) {
+                String mobileNumber = String.valueOf(cell.getNumericCellValue());
+
+                mobileNumber = String.format("%.0f", cell.getNumericCellValue());
+                userDetail.setMobileNumber(mobileNumber);
+            } else  {
+                userDetail.setMobileNumber(cell.getStringCellValue());
+            }
+        }
+
+        if (columnMap.containsKey("aadhar number")) {
+            Cell cell = row.getCell(columnMap.get("aadhar number"));
+            if (cell.getCellType() == CellType.NUMERIC) {
+                String aadharNumber = String.valueOf(cell.getNumericCellValue());
+
+                aadharNumber = String.format("%.0f", cell.getNumericCellValue());
+                userDetail.setAadharNumber(aadharNumber);
+            } else  {
+                userDetail.setAadharNumber(cell.getStringCellValue());
+            }
+        }
+
+        if (columnMap.containsKey("monthly payment")) {
+            userDetail.getInvestmentDetail().setTotalProfitAmount(row.getCell(columnMap.get("monthly payment")).getNumericCellValue());
+        }
+
+        if (columnMap.containsKey("period")) {
+            userDetail.getInvestmentDetail().setMonths((int) row.getCell(columnMap.get("period")).getNumericCellValue());
+        }
+
+        if (columnMap.containsKey("paid installment")) {
+            userDetail.getInvestmentDetail().setPaidInstallment((int) row.getCell(columnMap.get("paid installment")).getNumericCellValue());
+        }
+
+        if (columnMap.containsKey("first payment")) {
+            userDetail.getInvestmentDetail().setIstPaymentDate(row.getCell(columnMap.get("first payment")).getDateCellValue());
+        }
+
+        if (columnMap.containsKey("investment amount")) {
+            userDetail.getInvestmentDetail().setInvestmentAmount(row.getCell(columnMap.get("investment amount")).getNumericCellValue());
+        }
+
+        userDetail.setCreatedBy(1L);
+        userDetail.setUpdatedBy(1L);
+        userDetail.setCreatedOn(currentDate);
+        userDetail.setUpdatedOn(currentDate);
+
+        return userDetail;
     }
 }

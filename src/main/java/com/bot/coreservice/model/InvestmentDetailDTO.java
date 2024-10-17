@@ -1,21 +1,14 @@
-package com.bot.coreservice.entity;
-
+package com.bot.coreservice.model;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.util.Date;
 
-@Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "investment_detail")
-public class InvestmentDetail {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class InvestmentDetailDTO {
     long investmentId;
 
     long userId;
@@ -52,4 +45,14 @@ public class InvestmentDetail {
     Date updatedOn;
 
     int paidInstallment;
+
+    String firstName;
+
+    String lastName;
+
+    int total;
+
+    String accountId;
+
+    String mobileNumber;
 }
