@@ -19,4 +19,6 @@ public interface IUserService {
     UserDetail addNewUserService(String user, MultipartFile profile) throws Exception;
 
     UserDetail updateUserService(String userData, MultipartFile profileImage) throws Exception;
+
+    String addUserAndInvestmentExcelService(MultipartFile userExcel) throws Exception;
 }

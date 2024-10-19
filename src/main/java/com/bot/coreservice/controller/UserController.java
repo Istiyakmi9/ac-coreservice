@@ -50,4 +50,11 @@ public class UserController {
         var result = userService.updateUserService(user, profile);
         return ResponseEntity.ok(ApiResponse.Ok(result));
     }
+
+    @PostMapping("addUserAndInvestmentExcel")
+    public ResponseEntity<ApiResponse> addUserAndInvestmentExcel(
+            @RequestPart(value = "userExcel", required = true) MultipartFile userExcel) throws Exception {
+        var result = userService.addUserAndInvestmentExcelService(userExcel);
+        return ResponseEntity.ok(ApiResponse.Ok(result));
+    }
 }
