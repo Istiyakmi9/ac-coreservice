@@ -12,21 +12,21 @@ import java.util.Date;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name="inventory_detail")
-public class InventoryDetail {
+@Table(name="cd_products_investment")
+public class CDProductInvestment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    long inventoryId;
+    long cdProductId;
 
-    String inventoryName;
+    String productName;
 
     long userId;
 
     double emiAmount;
 
-    double onRoadPrice;
+    double finalPrice;
 
-    int months;
+    int period;
 
     double downPayment;
 
