@@ -402,20 +402,16 @@ public class UserServiceImpl implements IUserService {
 
             var existingInvestmentDetail = existingInvestment.size() == 1 ? existingInvestment.get(0)
                     : findCurrentInvestment(existingInvestment, investmentDetail.getAccountId());
-            try {
-                var paymentDetails = objectMapper.readValue(existingInvestmentDetail.getPaymentDetail(), new TypeReference<List<PaymentDetail>>() {
-                });
-                var currentPayment = findCurrentPayment(paymentDetails, investmentDetail);
-                currentPayment.setPaid(true);
+            var paymentDetails = objectMapper.readValue(existingInvestmentDetail.getPaymentDetail(), new TypeReference<List<PaymentDetail>>() {
+            });
+            var currentPayment = findCurrentPayment(paymentDetails, investmentDetail);
+            currentPayment.setPaid(true);
 
-                existingInvestmentDetail.setPaymentDetail(objectMapper.writeValueAsString(paymentDetails));
-                existingInvestmentDetail.setPaidInstallment(existingInvestmentDetail.getPaidInstallment() + 1);
-                existingInvestmentDetail.setLastPaymentAmount(currentPayment.getAmount());
+            existingInvestmentDetail.setPaymentDetail(objectMapper.writeValueAsString(paymentDetails));
+            existingInvestmentDetail.setPaidInstallment(existingInvestmentDetail.getPaidInstallment() + 1);
+            existingInvestmentDetail.setLastPaymentAmount(currentPayment.getAmount());
 
-                investmentRepository.save(existingInvestmentDetail);
-            } catch (Exception e) {
-                throw new Exception(e.getMessage());
-            }
+            investmentRepository.save(existingInvestmentDetail);
         }
     }
 

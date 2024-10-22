@@ -37,4 +37,10 @@ public class InvestmentController {
         var result = iInvestmentService.dailyTransactionService(filterModel);
         return ResponseEntity.ok(ApiResponse.Ok(result));
     }
+
+    @GetMapping("payInvestmentAmount/{investmentId}")
+    public ResponseEntity<ApiResponse> payInvestmentAmount(@PathVariable long investmentId) throws Exception {
+        var result = iInvestmentService.payInvestmentAmountService(investmentId);
+        return  ResponseEntity.ok(ApiResponse.Ok(result));
+    }
 }

@@ -21,7 +21,7 @@ public class InvestmentDetailDTO {
 
     double profitAmount;
 
-    int months;
+    int period;
 
     double totalProfitAmount;
 
@@ -55,4 +55,6 @@ public class InvestmentDetailDTO {
     String accountId;
 
     String mobileNumber;
+
+    String paymentDetail;
 }
