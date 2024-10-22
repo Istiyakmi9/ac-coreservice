@@ -1,8 +1,9 @@
 package com.bot.coreservice.model;
 
-import com.bot.coreservice.entity.InventoryDetail;
+import com.bot.coreservice.entity.CDProductInvestment;
 import com.bot.coreservice.entity.InvestmentDetail;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.persistence.Transient;
 import lombok.Data;
 
 import java.util.Date;
@@ -38,7 +39,7 @@ public class UserDetail {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     Date updatedOn;
 
-    InventoryDetail inventoryDetail;
+    CDProductInvestment cdProductInvestment;
 
     InvestmentDetail investmentDetail;
 

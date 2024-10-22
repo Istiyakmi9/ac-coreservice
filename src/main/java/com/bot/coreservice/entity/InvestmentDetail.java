@@ -28,7 +28,7 @@ public class InvestmentDetail {
 
     double profitAmount;
 
-    int months;
+    int period;
 
     double totalProfitAmount;
 
@@ -52,4 +52,16 @@ public class InvestmentDetail {
     Date updatedOn;
 
     int paidInstallment;
+
+    String paymentDetail;
+
+    double lastPaymentAmount;
+
+    String accountId;
+
+    @Transient
+    int month;
+
+    @Transient
+    int year;
 }

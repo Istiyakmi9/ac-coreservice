@@ -57,4 +57,10 @@ public class UserController {
         var result = userService.addUserAndInvestmentExcelService(userExcel);
         return ResponseEntity.ok(ApiResponse.Ok(result));
     }
+
+    @PostMapping("downloadUserExcel")
+    public ResponseEntity<ApiResponse> downloadUserExcel(@RequestBody FilterModel filterModel) throws Exception {
+        var result = userService.downloadUserExcelService(filterModel);
+        return ResponseEntity.ok(ApiResponse.Ok(result));
+    }
 }

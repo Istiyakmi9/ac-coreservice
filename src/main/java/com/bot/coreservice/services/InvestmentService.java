@@ -6,10 +6,8 @@ import com.bot.coreservice.contracts.IInvestmentService;
 import com.bot.coreservice.db.LowLevelExecution;
 import com.bot.coreservice.entity.InvestmentDetail;
 import com.bot.coreservice.entity.InvestmentType;
-import com.bot.coreservice.model.DbParameters;
-import com.bot.coreservice.model.FilterModel;
-import com.bot.coreservice.model.InvestmentDetailDTO;
-import com.bot.coreservice.model.MenuAndPermission;
+import com.bot.coreservice.model.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -45,9 +44,35 @@ public class InvestmentService implements IInvestmentService {
             investmentDetail.setInvestmentDate(currentDate);
         }
 
+        investmentDetail.setLastPaymentAmount(0);
+        investmentDetail.setPaymentDetail(getPaymentDetail(investmentDetail));
         investmentRepository.save(investmentDetail);
 
         return investmentDetail;
+    }
+
+    private  String getPaymentDetail(InvestmentDetail investmentDetail) throws JsonProcessingException {
+        List<PaymentDetail> paymentDetails = new ArrayList<>();
+
+        Date paymentDate = investmentDetail.getIstPaymentDate();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(paymentDate);
+
+        for (int i = 0; i < investmentDetail.getPeriod(); i++) {
+            Calendar paymentCalendar = (Calendar) calendar.clone();
+            paymentCalendar.add(Calendar.MONTH, i);
+
+            Date newPaymentDate = paymentCalendar.getTime();
+
+            paymentDetails.add(PaymentDetail.builder()
+                            .installmentNumber(i + 1)
+                            .amount(investmentDetail.getTotalProfitAmount())
+                            .paymentDate(newPaymentDate)
+                            .isPaid((i + 1) <= investmentDetail.getPaidInstallment() ? true : false)
+                            .build());
+        }
+
+        return objectMapper.writeValueAsString(paymentDetails);
     }
 
     public List<InvestmentDetail> getInvestmentService(long userId) throws Exception {
@@ -70,7 +95,7 @@ public class InvestmentService implements IInvestmentService {
         if (investmentDetail.getProfitAmount() == 0)
             throw new Exception("Invalid profit amount");
 
-        if (investmentDetail.getMonths() == 0)
+        if (investmentDetail.getPeriod() == 0)
             throw new Exception("Invalid month");
 
         if (investmentDetail.getIstPaymentDate() == null)

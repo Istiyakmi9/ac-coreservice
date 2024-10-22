@@ -1,7 +1,7 @@
 package com.bot.coreservice.controller;
 
-import com.bot.coreservice.contracts.IInventoryService;
-import com.bot.coreservice.entity.InventoryDetail;
+import com.bot.coreservice.contracts.ICDProductInvestmentService;
+import com.bot.coreservice.entity.CDProductInvestment;
 import com.bot.coreservice.model.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -11,17 +11,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/core/inventory/")
 public class InventoryController {
     @Autowired
-    IInventoryService iInventoryService;
+    ICDProductInvestmentService ICDProductInvestmentService;
 
     @PostMapping("addInventory")
-    public ResponseEntity<ApiResponse> addInventory(@RequestBody InventoryDetail inventoryDetail) throws Exception {
-        var result = iInventoryService.addInventoryService(inventoryDetail);
+    public ResponseEntity<ApiResponse> addInventory(@RequestBody CDProductInvestment cdProductInvestment) throws Exception {
+        var result = ICDProductInvestmentService.addCDProductInvestmentService(cdProductInvestment);
         return ResponseEntity.ok(ApiResponse.Ok(result));
     }
 
     @GetMapping("getInventory/{userId}")
     public ResponseEntity<ApiResponse> getInventory(@PathVariable long userId) throws Exception {
-        var result = iInventoryService.getInventoryService(userId);
+        var result = ICDProductInvestmentService.getCDProductInvestmentService(userId);
         return ResponseEntity.ok(ApiResponse.Ok(result));
     }
 }

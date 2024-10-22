@@ -16,9 +16,9 @@ public class UserAccount {
 
     private BigDecimal installmentPaid;
 
-    private int tenure; // in months
+    private int tenure; // in period
 
-    private int tenurePaid; // in months
+    private int tenurePaid; // in period
 
     private BigDecimal emi;
 }

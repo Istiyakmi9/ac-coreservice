@@ -1,6 +1,5 @@
 package com.bot.coreservice.contracts;
 
-import com.bot.coreservice.entity.InventoryDetail;
 import com.bot.coreservice.entity.User;
 import com.bot.coreservice.model.FilterModel;
 import com.bot.coreservice.model.UserDetail;
@@ -21,4 +20,6 @@ public interface IUserService {
     UserDetail updateUserService(String userData, MultipartFile profileImage) throws Exception;
 
     String addUserAndInvestmentExcelService(MultipartFile userExcel) throws Exception;
+
+    byte[] downloadUserExcelService(FilterModel filterModel) throws Exception;
 }
