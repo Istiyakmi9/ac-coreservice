@@ -17,4 +17,6 @@ public interface IInvestmentService {
     List<InvestmentType> getAllInvestmentTypeService();
 
     List<InvestmentDetailDTO> dailyTransactionService(FilterModel filterModel);
+
+    String payInvestmentAmountService(long investmentId) throws Exception;
 }

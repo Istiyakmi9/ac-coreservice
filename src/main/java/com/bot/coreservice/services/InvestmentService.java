@@ -36,6 +36,7 @@ public class InvestmentService implements IInvestmentService {
 
         Date utilDate = new Date();
         var currentDate = new Timestamp(utilDate.getTime());
+
         investmentDetail.setCreatedBy(1L);
         investmentDetail.setUpdatedBy(1L);
         investmentDetail.setCreatedOn(currentDate);
@@ -135,5 +136,27 @@ public class InvestmentService implements IInvestmentService {
 
         return objectMapper.convertValue(dataSet.get("#result-set-1"), new TypeReference<List<InvestmentDetailDTO>>() {
         });
+    }
+
+    public String payInvestmentAmountService(long investmentId) throws Exception {
+        if (investmentId == 0)
+            throw new Exception("Invalid investment id");
+        
+        var investmentDetail = investmentRepository.findById(investmentId).orElseThrow(() -> new Exception("Investment detail not found"));
+        var paymentDetails = objectMapper.readValue(investmentDetail.getPaymentDetail(), new TypeReference<List<PaymentDetail>>() {
+        });
+        var currentPayment = paymentDetails.stream().filter(x -> x.getInstallmentNumber() == investmentDetail.getPaidInstallment() + 1)
+                                                    .findFirst()
+                                                    .orElseThrow(() -> new Exception("Installment detail not found"));
+
+        Date utilDate = new Date();
+        var currentDate = new Timestamp(utilDate.getTime());
+
+        currentPayment.setPaid(true);
+        currentPayment.setPaymentDate(currentDate);
+        investmentDetail.setPaymentDetail(objectMapper.writeValueAsString(paymentDetails));
+        investmentDetail.setPaidInstallment(investmentDetail.getPaidInstallment() + 1);
+        investmentRepository.save(investmentDetail);
+        return "Payment successfully";
     }
 }
