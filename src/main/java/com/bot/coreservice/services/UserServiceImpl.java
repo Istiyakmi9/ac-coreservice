@@ -1,23 +1,19 @@
 package com.bot.coreservice.services;
 
-import com.bot.coreservice.Repository.AccountSequenceRepository;
-import com.bot.coreservice.Repository.InvestmentRepository;
-import com.bot.coreservice.Repository.UserFileRepository;
-import com.bot.coreservice.Repository.UserRepository;
+import com.bot.coreservice.Repository.*;
 import com.bot.coreservice.contracts.ICDProductInvestmentService;
 import com.bot.coreservice.contracts.IInvestmentService;
 import com.bot.coreservice.contracts.IUserService;
 import com.bot.coreservice.db.LowLevelExecution;
-import com.bot.coreservice.entity.CDProductInvestment;
-import com.bot.coreservice.entity.InvestmentDetail;
-import com.bot.coreservice.entity.User;
-import com.bot.coreservice.entity.UserFile;
-import com.bot.coreservice.model.*;
+import com.bot.coreservice.entity.*;
+import com.bot.coreservice.model.ApplicationConstant;
+import com.bot.coreservice.model.DbParameters;
+import com.bot.coreservice.model.FilterModel;
+import com.bot.coreservice.model.UserDetail;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +23,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Service
@@ -49,6 +47,8 @@ public class UserServiceImpl implements IUserService {
     AccountSequenceRepository accountSequenceRepository;
     @Autowired
     InvestmentRepository investmentRepository;
+    @Autowired
+    PaymentDetailRepository paymentDetailRepository;
 
     public String addUserExcelService(MultipartFile userExcel) throws Exception {
         try {
@@ -115,11 +115,15 @@ public class UserServiceImpl implements IUserService {
             var investmentDetail = objectMapper.convertValue(userDetail.getInvestmentDetail(), InvestmentDetail.class);
             investmentDetail.setUserId(newUser.getUserId());
             investmentDetail.setAccountId(getAccountNumber(user.getProductType()));
-            investmentDetail = iInvestmentService.addInvestmentService(investmentDetail);
+            var investmentDetailDTO = iInvestmentService.addInvestmentService(investmentDetail);
+
+            investmentDetail = objectMapper.convertValue(investmentDetailDTO, InvestmentDetail.class);
             userDetail.setInvestmentDetail(investmentDetail);
         } else {
             var inventoryDetail = objectMapper.convertValue(userDetail.getCdProductInvestment(), CDProductInvestment.class);
             inventoryDetail.setUserId(newUser.getUserId());
+            inventoryDetail.setAccountId(getAccountNumber(user.getProductType()));
+            inventoryDetail.setPaidInstallment(0);
             inventoryDetail = ICDProductInvestmentService.addCDProductInvestmentService(inventoryDetail);
             userDetail.setCdProductInvestment(inventoryDetail);
         }
@@ -191,12 +195,14 @@ public class UserServiceImpl implements IUserService {
             var investmentDetail = objectMapper.convertValue(userDetail.getInvestmentDetail(), InvestmentDetail.class);
             investmentDetail.setUserId(existingUser.getUserId());
             investmentDetail.setAccountId(getAccountNumber(ApplicationConstant.Investment));
-            investmentDetail = iInvestmentService.addInvestmentService(investmentDetail);
+            var investmentDetailDTO = iInvestmentService.addInvestmentService(investmentDetail);
 
+            investmentDetail = objectMapper.convertValue(investmentDetailDTO, InvestmentDetail.class);
             userDetail.setInvestmentDetail(investmentDetail);
         } else {
             var inventoryDetail = objectMapper.convertValue(userDetail.getCdProductInvestment(), CDProductInvestment.class);
             inventoryDetail.setUserId(existingUser.getUserId());
+            inventoryDetail.setAccountId(getAccountNumber(ApplicationConstant.CDProduct));
             inventoryDetail = ICDProductInvestmentService.addCDProductInvestmentService(inventoryDetail);
 
             userDetail.setCdProductInvestment(inventoryDetail);
@@ -217,7 +223,6 @@ public class UserServiceImpl implements IUserService {
         }
     }
 
-    @NotNull
     private static User getUpdateUserDetail(Optional<User> existingUserData, User user, Timestamp currentDate) throws Exception {
         if (existingUserData.isEmpty())
             throw new Exception("User detail not found");
@@ -296,9 +301,7 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("referenceby")) {
             Cell cell = row.getCell(columnMap.get("referenceby"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String referenceby = String.valueOf(cell.getNumericCellValue());
-
-                referenceby = String.format("%.0f", cell.getNumericCellValue());
+                String referenceby = String.format("%.0f", cell.getNumericCellValue());
                 user.setReferenceBy(referenceby);
             } else {
                 user.setReferenceBy(cell.getStringCellValue());
@@ -308,9 +311,7 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("mobilenumber")) {
             Cell cell = row.getCell(columnMap.get("mobilenumber"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String mobileNumber = String.valueOf(cell.getNumericCellValue());
-
-                mobileNumber = String.format("%.0f", cell.getNumericCellValue());
+                String mobileNumber = String.format("%.0f", cell.getNumericCellValue());
                 user.setMobileNumber(mobileNumber);
             } else {
                 user.setMobileNumber(cell.getStringCellValue());
@@ -320,9 +321,7 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("aadharnumber")) {
             Cell cell = row.getCell(columnMap.get("aadharnumber"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String aadharNumber = String.valueOf(cell.getNumericCellValue());
-
-                aadharNumber = String.format("%.0f", cell.getNumericCellValue());
+                String aadharNumber = String.format("%.0f", cell.getNumericCellValue());
                 user.setAadharNumber(aadharNumber);
             } else {
                 user.setAadharNumber(cell.getStringCellValue());
@@ -364,6 +363,7 @@ public class UserServiceImpl implements IUserService {
                     try {
                         addInvestmentDetail(investmentDetail);
                     } catch (Exception e) {
+                        throw new RuntimeException(e);
                     }
                 });
             }
@@ -402,12 +402,9 @@ public class UserServiceImpl implements IUserService {
 
             var existingInvestmentDetail = existingInvestment.size() == 1 ? existingInvestment.get(0)
                     : findCurrentInvestment(existingInvestment, investmentDetail.getAccountId());
-            var paymentDetails = objectMapper.readValue(existingInvestmentDetail.getPaymentDetail(), new TypeReference<List<PaymentDetail>>() {
-            });
-            var currentPayment = findCurrentPayment(paymentDetails, investmentDetail);
-            currentPayment.setPaid(true);
 
-            existingInvestmentDetail.setPaymentDetail(objectMapper.writeValueAsString(paymentDetails));
+            var currentPayment = findAndUpdateCurrentPayment(existingInvestmentDetail.getInvestmentId(), investmentDetail);
+
             existingInvestmentDetail.setPaidInstallment(existingInvestmentDetail.getPaidInstallment() + 1);
             existingInvestmentDetail.setLastPaymentAmount(currentPayment.getAmount());
 
@@ -424,19 +421,29 @@ public class UserServiceImpl implements IUserService {
                 .orElseThrow(() -> new Exception("Investment detail not found"));
     }
 
-    private PaymentDetail findCurrentPayment(List<PaymentDetail> paymentDetails, InvestmentDetail investmentDetail) throws Exception {
-        return paymentDetails.stream().filter(x -> {
+    private PaymentDetail findAndUpdateCurrentPayment(long investmentId, InvestmentDetail investmentDetail) throws Exception {
+        var paymentDetails = paymentDetailRepository.getPaymentDetailByInvId(investmentId, ApplicationConstant.InvestmentByUser);
+        if (paymentDetails == null || paymentDetails.isEmpty())
+            throw new Exception("Payment detail not found");
+
+        var currentMontPayment = paymentDetails.stream().filter(x -> {
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(x.getPaymentDate());
             return (calendar.get(Calendar.MONTH) + 1 == investmentDetail.getMonth() && calendar.get(Calendar.YEAR) == investmentDetail.getYear());
         }).findFirst().orElseThrow(() -> new Exception("Payment not found for the specified month and year"));
+
+        currentMontPayment.setPaid(true);
+
+        paymentDetailRepository.save(currentMontPayment);
+
+        return currentMontPayment;
     }
 
     private void updateInvestmentDetail(InvestmentDetail investmentDetail) throws Exception {
         investmentDetail.setLastPaymentDate(getNewDate(investmentDetail.getIstPaymentDate(), investmentDetail.getPeriod() - 1));
         investmentDetail.setPrincipalAmount(investmentDetail.getInvestmentAmount() * 0.05);
         investmentDetail.setProfitAmount(investmentDetail.getTotalProfitAmount() - investmentDetail.getPrincipalAmount());
-        investmentDetail.setInvestmentDate(getNewDate(investmentDetail.getIstPaymentDate(), -1 * investmentDetail.getPaidInstallment()));
+        investmentDetail.setInvestmentDate(getNewDate(investmentDetail.getIstPaymentDate(), -1));
         investmentDetail.setAccountId(getAccountNumber(ApplicationConstant.Investment));
     }
 
@@ -473,7 +480,7 @@ public class UserServiceImpl implements IUserService {
         return userDetails;
     }
 
-    private UserDetail mappedUserAndInvestmentData(Map<String, Integer> columnMap, Row row) {
+    private UserDetail mappedUserAndInvestmentData(Map<String, Integer> columnMap, Row row) throws ParseException {
         UserDetail userDetail = new UserDetail();
         userDetail.setInvestmentDetail(new InvestmentDetail());
         Date utilDate = new Date();
@@ -490,10 +497,8 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("reference by")) {
             Cell cell = row.getCell(columnMap.get("reference by"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String referenceby = String.valueOf(cell.getNumericCellValue());
-
-                referenceby = String.format("%.0f", cell.getNumericCellValue());
-                userDetail.setReferenceBy(referenceby);
+                String referenceBy = String.format("%.0f", cell.getNumericCellValue());
+                userDetail.setReferenceBy(referenceBy);
             } else {
                 userDetail.setReferenceBy(cell.getStringCellValue());
             }
@@ -502,9 +507,7 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("mobile number")) {
             Cell cell = row.getCell(columnMap.get("mobile number"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String mobileNumber = String.valueOf(cell.getNumericCellValue());
-
-                mobileNumber = String.format("%.0f", cell.getNumericCellValue());
+                String mobileNumber = String.format("%.0f", cell.getNumericCellValue());
                 userDetail.setMobileNumber(mobileNumber);
             } else {
                 userDetail.setMobileNumber(cell.getStringCellValue());
@@ -514,9 +517,7 @@ public class UserServiceImpl implements IUserService {
         if (columnMap.containsKey("aadhar number")) {
             Cell cell = row.getCell(columnMap.get("aadhar number"));
             if (cell.getCellType() == CellType.NUMERIC) {
-                String aadharNumber = String.valueOf(cell.getNumericCellValue());
-
-                aadharNumber = String.format("%.0f", cell.getNumericCellValue());
+                String aadharNumber = String.format("%.0f", cell.getNumericCellValue());
                 userDetail.setAadharNumber(aadharNumber);
             } else {
                 userDetail.setAadharNumber(cell.getStringCellValue());
@@ -524,31 +525,45 @@ public class UserServiceImpl implements IUserService {
         }
 
         if (columnMap.containsKey("monthly payment")) {
-            userDetail.getInvestmentDetail().setTotalProfitAmount(row.getCell(columnMap.get("monthly payment")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("monthly payment"));
+            userDetail.getInvestmentDetail().setTotalProfitAmount(getDoubleCellValueOrDefault(cell));
         }
 
         if (columnMap.containsKey("period")) {
-            userDetail.getInvestmentDetail().setPeriod((int) row.getCell(columnMap.get("period")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("period"));
+            userDetail.getInvestmentDetail().setPeriod(getIntCellValueOrDefault(cell));
         }
 
         if (columnMap.containsKey("paid installment")) {
-            userDetail.getInvestmentDetail().setPaidInstallment((int) row.getCell(columnMap.get("paid installment")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("paid installment"));
+            userDetail.getInvestmentDetail().setPaidInstallment(getIntCellValueOrDefault(cell));
         }
 
         if (columnMap.containsKey("first payment")) {
-            userDetail.getInvestmentDetail().setIstPaymentDate(row.getCell(columnMap.get("first payment")).getDateCellValue());
+            Cell cell = row.getCell(columnMap.get("first payment"));
+            if (cell.getCellType() == CellType.STRING) {
+                var value = cell.getStringCellValue();
+                SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy");
+                userDetail.getInvestmentDetail().setIstPaymentDate(formatter.parse(value));
+
+            } else {
+                userDetail.getInvestmentDetail().setIstPaymentDate(cell.getDateCellValue());
+            }
         }
 
         if (columnMap.containsKey("investment amount")) {
-            userDetail.getInvestmentDetail().setInvestmentAmount(row.getCell(columnMap.get("investment amount")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("investment amount"));
+            userDetail.getInvestmentDetail().setInvestmentAmount(getDoubleCellValueOrDefault(cell));
         }
 
         if (columnMap.containsKey("month")) {
-            userDetail.getInvestmentDetail().setMonth((int) row.getCell(columnMap.get("month")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("month"));
+            userDetail.getInvestmentDetail().setMonth(getIntCellValueOrDefault(cell));
         }
 
         if (columnMap.containsKey("year")) {
-            userDetail.getInvestmentDetail().setYear((int) row.getCell(columnMap.get("year")).getNumericCellValue());
+            Cell cell = row.getCell(columnMap.get("year"));
+            userDetail.getInvestmentDetail().setYear(getIntCellValueOrDefault(cell));
         }
 
         userDetail.setCreatedBy(1L);
@@ -557,6 +572,20 @@ public class UserServiceImpl implements IUserService {
         userDetail.setUpdatedOn(currentDate);
 
         return userDetail;
+    }
+
+    private int getIntCellValueOrDefault(Cell cell) {
+        if (cell == null || cell.getCellType() != CellType.NUMERIC)
+            return 0;
+
+        return (int) cell.getNumericCellValue();
+    }
+
+    private double getDoubleCellValueOrDefault(Cell cell) {
+        if (cell == null || cell.getCellType() != CellType.NUMERIC)
+            return 0;
+
+        return cell.getNumericCellValue();
     }
 
     public byte[] downloadUserExcelService(FilterModel filterModel) throws Exception {
@@ -593,5 +622,4 @@ public class UserServiceImpl implements IUserService {
             return byteArrayOutputStream.toByteArray();
         }
     }
-
 }

@@ -8,7 +8,7 @@ import com.bot.coreservice.model.InvestmentDetailDTO;
 import java.util.List;
 
 public interface IInvestmentService {
-    InvestmentDetail addInvestmentService(InvestmentDetail inventoryDetail) throws Exception;
+    InvestmentDetailDTO addInvestmentService(InvestmentDetail inventoryDetail) throws Exception;
 
     List<InvestmentDetail> getInvestmentService(long userId) throws Exception;
 
@@ -18,5 +18,5 @@ public interface IInvestmentService {
 
     List<InvestmentDetailDTO> dailyTransactionService(FilterModel filterModel);
 
-    String payInvestmentAmountService(long investmentId) throws Exception;
+    List<InvestmentDetailDTO> payInvestmentAmountService(long investmentId) throws Exception;
 }

@@ -1,6 +1,7 @@
-package com.bot.coreservice.entity;
+package com.bot.coreservice.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,14 +9,10 @@ import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
-@Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name="cd_products_investment")
-public class CDProductInvestment {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class CDProductInvestmentDTO {
     long cdProductId;
 
     String productName;
@@ -55,4 +52,17 @@ public class CDProductInvestment {
     String accountId;
 
     int paidInstallment;
+
+    int total;
+
+    String firstName;
+
+    String lastName;
+
+    String mobileNumber;
+
+    @JsonProperty("isPaid")
+    boolean isPaid;
+
+    int rowIndex;
 }

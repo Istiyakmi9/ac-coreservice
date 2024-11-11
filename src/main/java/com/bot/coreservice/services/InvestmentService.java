@@ -2,16 +2,21 @@ package com.bot.coreservice.services;
 
 import com.bot.coreservice.Repository.InvestmentRepository;
 import com.bot.coreservice.Repository.InvestmentTypeRepository;
+import com.bot.coreservice.Repository.PaymentDetailRepository;
 import com.bot.coreservice.contracts.IInvestmentService;
 import com.bot.coreservice.db.LowLevelExecution;
 import com.bot.coreservice.entity.InvestmentDetail;
 import com.bot.coreservice.entity.InvestmentType;
-import com.bot.coreservice.model.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.bot.coreservice.entity.PaymentDetail;
+import com.bot.coreservice.model.ApplicationConstant;
+import com.bot.coreservice.model.DbParameters;
+import com.bot.coreservice.model.FilterModel;
+import com.bot.coreservice.model.InvestmentDetailDTO;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -30,8 +35,11 @@ public class InvestmentService implements IInvestmentService {
     LowLevelExecution lowLevelExecution;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    PaymentDetailRepository paymentDetailRepository;
 
-    public InvestmentDetail addInvestmentService(InvestmentDetail investmentDetail) throws Exception {
+    @Transactional(rollbackFor = Exception.class)
+    public InvestmentDetailDTO addInvestmentService(InvestmentDetail investmentDetail) throws Exception {
         validateInvestmentDetail(investmentDetail);
 
         Date utilDate = new Date();
@@ -41,18 +49,23 @@ public class InvestmentService implements IInvestmentService {
         investmentDetail.setUpdatedBy(1L);
         investmentDetail.setCreatedOn(currentDate);
         investmentDetail.setUpdatedOn(currentDate);
+        investmentDetail.setLastPaymentAmount(0);
+
         if (investmentDetail.getInvestmentDate() == null) {
             investmentDetail.setInvestmentDate(currentDate);
         }
 
-        investmentDetail.setLastPaymentAmount(0);
-        investmentDetail.setPaymentDetail(getPaymentDetail(investmentDetail));
-        investmentRepository.save(investmentDetail);
+        investmentDetail = investmentRepository.save(investmentDetail);
 
-        return investmentDetail;
+        var paymentDetails = addPaymentDetail(investmentDetail);
+
+        InvestmentDetailDTO investmentDetailDTO = objectMapper.convertValue(investmentDetail, InvestmentDetailDTO.class);
+        investmentDetailDTO.setPaymentDetail(paymentDetails);
+
+        return investmentDetailDTO;
     }
 
-    private  String getPaymentDetail(InvestmentDetail investmentDetail) throws JsonProcessingException {
+    private  List<PaymentDetail> addPaymentDetail(InvestmentDetail investmentDetail) {
         List<PaymentDetail> paymentDetails = new ArrayList<>();
 
         Date paymentDate = investmentDetail.getIstPaymentDate();
@@ -66,6 +79,9 @@ public class InvestmentService implements IInvestmentService {
             Date newPaymentDate = paymentCalendar.getTime();
 
             paymentDetails.add(PaymentDetail.builder()
+                            .paymentDetailId(0)
+                            .investmentCategoryTypeId(ApplicationConstant.InvestmentByUser)
+                            .investmentId(investmentDetail.getInvestmentId())
                             .installmentNumber(i + 1)
                             .amount(investmentDetail.getTotalProfitAmount())
                             .paymentDate(newPaymentDate)
@@ -73,7 +89,9 @@ public class InvestmentService implements IInvestmentService {
                             .build());
         }
 
-        return objectMapper.writeValueAsString(paymentDetails);
+        paymentDetails = paymentDetailRepository.saveAll(paymentDetails);
+
+        return paymentDetails;
     }
 
     public List<InvestmentDetail> getInvestmentService(long userId) throws Exception {
@@ -138,25 +156,46 @@ public class InvestmentService implements IInvestmentService {
         });
     }
 
-    public String payInvestmentAmountService(long investmentId) throws Exception {
+    @Transactional(rollbackFor = Exception.class)
+    public List<InvestmentDetailDTO> payInvestmentAmountService(long investmentId) throws Exception {
         if (investmentId == 0)
             throw new Exception("Invalid investment id");
         
         var investmentDetail = investmentRepository.findById(investmentId).orElseThrow(() -> new Exception("Investment detail not found"));
-        var paymentDetails = objectMapper.readValue(investmentDetail.getPaymentDetail(), new TypeReference<List<PaymentDetail>>() {
-        });
-        var currentPayment = paymentDetails.stream().filter(x -> x.getInstallmentNumber() == investmentDetail.getPaidInstallment() + 1)
-                                                    .findFirst()
-                                                    .orElseThrow(() -> new Exception("Installment detail not found"));
+
+        var paymentDetail = findAndUpdateCurrentPayment(investmentId, investmentDetail.getPaidInstallment() + 1);
+
+        investmentDetail.setPaidInstallment(paymentDetail.getInstallmentNumber());
+        investmentDetail.setLastPaymentAmount(paymentDetail.getAmount());
+
+        investmentRepository.save(investmentDetail);
+
+        var filterModel = FilterModel.builder()
+                .searchString("1=1")
+                .pageIndex(1)
+                .pageSize(10)
+                .build();
+
+        return dailyTransactionService(filterModel);
+    }
+
+    private PaymentDetail findAndUpdateCurrentPayment(long investmentId, int payInstallment) throws Exception {
+        var paymentDetails = paymentDetailRepository.getPaymentDetailByInvId(investmentId, ApplicationConstant.InvestmentByUser);
+        if (paymentDetails == null || paymentDetails.isEmpty())
+            throw new Exception("Payment detail not found");
+
+        var currentPayment = paymentDetails.stream().filter(x -> x.getInstallmentNumber() == payInstallment)
+                .findFirst()
+                .orElseThrow(() -> new Exception("Installment detail not found"));
 
         Date utilDate = new Date();
         var currentDate = new Timestamp(utilDate.getTime());
 
         currentPayment.setPaid(true);
         currentPayment.setPaymentDate(currentDate);
-        investmentDetail.setPaymentDetail(objectMapper.writeValueAsString(paymentDetails));
-        investmentDetail.setPaidInstallment(investmentDetail.getPaidInstallment() + 1);
-        investmentRepository.save(investmentDetail);
-        return "Payment successfully";
+
+        paymentDetailRepository.save(currentPayment);
+
+        return currentPayment;
     }
 }

@@ -48,7 +48,7 @@ public class RequestFilter implements Filter {
                 if (jwtTokenModel == null)
                     throw new Exception("Invalid token found. Please contact to admin.");
 
-                currentSession.setUser(objectMapper.readValue(jwtTokenModel.getUserDetail(), User.class));
+                //currentSession.setUser(objectMapper.readValue(jwtTokenModel.getUserDetail(), User.class));
             }
 
 

@@ -11,6 +11,10 @@ public final class ApplicationConstant {
     public static final int Unfriend = 5;
 
     public static final int Investment = 4;
+    public static final int CDProduct = 3;
+
+    public static final int InvestmentByUser = 1;
+    public static final int CDProductByUser = 2;
 
 }
 

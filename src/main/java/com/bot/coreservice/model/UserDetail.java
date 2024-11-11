@@ -3,7 +3,6 @@ package com.bot.coreservice.model;
 import com.bot.coreservice.entity.CDProductInvestment;
 import com.bot.coreservice.entity.InvestmentDetail;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import jakarta.persistence.Transient;
 import lombok.Data;
 
 import java.util.Date;
