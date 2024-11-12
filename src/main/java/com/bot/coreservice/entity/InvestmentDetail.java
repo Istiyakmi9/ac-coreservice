@@ -53,8 +53,6 @@ public class InvestmentDetail {
 
     int paidInstallment;
 
-    String paymentDetail;
-
     double lastPaymentAmount;
 
     String accountId;
